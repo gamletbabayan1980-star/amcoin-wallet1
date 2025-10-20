@@ -62,6 +62,14 @@
         .ton-connect-button:hover {
             transform: scale(1.05);
         }
+        .transaction-pending {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900">
@@ -69,21 +77,31 @@
     
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
-        const { Wallet, User, Lock, Eye, EyeOff, ArrowRight, Send, QrCode, Settings, BarChart3, Coins, Globe, Moon, Sun, LogOut, ChevronDown, ChevronUp, Zap, Shield, Info, Copy, Check, ExternalLink } = lucideReact;
+        const { Wallet, User, Lock, Eye, EyeOff, ArrowRight, Send, QrCode, Settings, BarChart3, Coins, Globe, Moon, Sun, LogOut, ChevronDown, ChevronUp, Zap, Shield, Info, Copy, Check, ExternalLink, AlertCircle } = lucideReact;
 
-        // Mock TON Wallet Connection
+        // Mock TON Wallet Connection with more realistic simulation
         const useTonConnect = () => {
             const [connected, setConnected] = useState(false);
             const [wallet, setWallet] = useState(null);
             const [balance, setBalance] = useState('0');
+            const [loading, setLoading] = useState(false);
             
-            const connect = () => {
+            const connect = async () => {
+                setLoading(true);
+                // Simulate network delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
                 setConnected(true);
                 setWallet({
                     address: 'UQabcdefghijklmnopqrstuvwxyz1234567890',
-                    name: 'TON Wallet'
+                    name: 'TON Wallet',
+                    chain: 'mainnet',
+                    provider: 'MyTonWallet'
                 });
+                
+                // Simulate fetching real balance
                 setBalance('2847.32');
+                setLoading(false);
             };
             
             const disconnect = () => {
@@ -92,7 +110,7 @@
                 setBalance('0');
             };
             
-            return { connected, wallet, balance, connect, disconnect };
+            return { connected, wallet, balance, loading, connect, disconnect };
         };
 
         const App = () => {
@@ -113,12 +131,14 @@
             const [showSendModal, setShowSendModal] = useState(false);
             const [showReceiveModal, setShowReceiveModal] = useState(false);
             const [transactions, setTransactions] = useState([
-                { id: 1, type: 'received', amount: '150.00', address: 'UQabcdefghijklmnopqrstuvwxyz1234567890', time: '2 hours ago', status: 'completed' },
-                { id: 2, type: 'sent', amount: '75.50', address: 'UQ0987654321zyxwvutsrqponmlkjihgfedcba', time: '1 day ago', status: 'completed' },
-                { id: 3, type: 'received', amount: '200.00', address: 'UQfedcba9876543210zyxwvutsrqponmlkjihg', time: '3 days ago', status: 'completed' }
+                { id: 1, type: 'received', amount: '150.00', address: 'UQabcdefghijklmnopqrstuvwxyz1234567890', time: '2 hours ago', status: 'completed', hash: '0x1234567890abcdef' },
+                { id: 2, type: 'sent', amount: '75.50', address: 'UQ0987654321zyxwvutsrqponmlkjihgfedcba', time: '1 day ago', status: 'completed', hash: '0xabcdef1234567890' },
+                { id: 3, type: 'received', amount: '200.00', address: 'UQfedcba9876543210zyxwvutsrqponmlkjihg', time: '3 days ago', status: 'completed', hash: '0x7890abcdef123456' }
             ]);
+            const [networkStatus, setNetworkStatus] = useState('online');
+            const [transactionFee, setTransactionFee] = useState('0.001');
             
-            const { connected, wallet, balance, connect, disconnect } = useTonConnect();
+            const { connected, wallet, balance, loading, connect, disconnect } = useTonConnect();
 
             const languages = {
                 en: 'English',
@@ -169,8 +189,20 @@
                 setTimeout(() => setCopied(false), 2000);
             };
 
-            const sendTransaction = () => {
+            const sendTransaction = async () => {
                 if (!sendAmount || !sendAddress) return;
+                
+                // Validate address format
+                if (!sendAddress.startsWith('UQ') || sendAddress.length !== 48) {
+                    alert('Invalid TON address format');
+                    return;
+                }
+                
+                // Validate amount
+                if (parseFloat(sendAmount) > parseFloat(balance)) {
+                    alert('Insufficient balance');
+                    return;
+                }
                 
                 const newTransaction = {
                     id: transactions.length + 1,
@@ -178,20 +210,47 @@
                     amount: sendAmount,
                     address: sendAddress,
                     time: 'Just now',
-                    status: 'pending'
+                    status: 'pending',
+                    hash: '0x' + Math.random().toString(16).substr(2, 16)
                 };
                 
                 setTransactions([newTransaction, ...transactions]);
                 setSendAmount('');
                 setSendAddress('');
-                setShowSendModal(false);
                 
-                // Simulate transaction completion
+                // Simulate transaction processing
                 setTimeout(() => {
                     setTransactions(prev => prev.map(tx => 
                         tx.id === newTransaction.id ? {...tx, status: 'completed'} : tx
                     ));
+                    // Update balance
+                    setBalance((parseFloat(balance) - parseFloat(sendAmount) - parseFloat(transactionFee)).toFixed(2));
                 }, 3000);
+                
+                setShowSendModal(false);
+            };
+
+            const receiveTransaction = (amount, address) => {
+                const newTransaction = {
+                    id: transactions.length + 1,
+                    type: 'received',
+                    amount: amount,
+                    address: address,
+                    time: 'Just now',
+                    status: 'pending',
+                    hash: '0x' + Math.random().toString(16).substr(2, 16)
+                };
+                
+                setTransactions([newTransaction, ...transactions]);
+                
+                // Simulate transaction processing
+                setTimeout(() => {
+                    setTransactions(prev => prev.map(tx => 
+                        tx.id === newTransaction.id ? {...tx, status: 'completed'} : tx
+                    ));
+                    // Update balance
+                    setBalance((parseFloat(balance) + parseFloat(amount)).toFixed(2));
+                }, 2000);
             };
 
             const WelcomePage = () => (
@@ -223,15 +282,42 @@
                             <div className="mb-6">
                                 <button
                                     onClick={connect}
+                                    disabled={loading}
                                     className={`w-full py-3 rounded-lg font-semibold transition-all transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2 ${
                                         connected 
                                             ? 'bg-green-600 text-white' 
                                             : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700'
-                                    }`}
+                                    } ${loading ? 'opacity-75 cursor-not-allowed' : ''}`}
                                 >
-                                    <Zap className="w-4 h-4" />
-                                    <span>{connected ? 'TON Connected' : 'Connect TON Wallet'}</span>
+                                    {loading ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Connecting to TON...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Zap className="w-4 h-4" />
+                                            <span>{connected ? 'TON Connected' : 'Connect TON Wallet'}</span>
+                                        </>
+                                    )}
                                 </button>
+                            </div>
+
+                            {/* Network Status */}
+                            <div className={`flex items-center justify-center space-x-2 p-3 rounded-lg mb-6 ${
+                                networkStatus === 'online' 
+                                    ? 'bg-green-500/20 text-green-400' 
+                                    : 'bg-red-500/20 text-red-400'
+                            }`}>
+                                <div className={`w-2 h-2 rounded-full ${
+                                    networkStatus === 'online' ? 'bg-green-400' : 'bg-red-400'
+                                }`}></div>
+                                <span className="text-sm">
+                                    {networkStatus === 'online' ? 'Connected to TON Network' : 'Network issues detected'}
+                                </span>
                             </div>
 
                             {/* Registration Form */}
@@ -342,6 +428,16 @@
                                 </div>
                             </div>
                             <div className="flex items-center space-x-2">
+                                <div className={`flex items-center space-x-1 p-1 rounded ${
+                                    networkStatus === 'online' 
+                                        ? 'bg-green-500/20 text-green-400' 
+                                        : 'bg-red-500/20 text-red-400'
+                                }`}>
+                                    <div className={`w-2 h-2 rounded-full ${
+                                        networkStatus === 'online' ? 'bg-green-400' : 'bg-red-400'
+                                    }`}></div>
+                                    <span className="text-xs">TON</span>
+                                </div>
                                 <button 
                                     onClick={() => setShowSettings(!showSettings)}
                                     className={`p-2 ${darkMode ? 'text-purple-300 hover:text-white' : 'text-purple-600 hover:text-gray-900'} transition-colors`}
@@ -445,6 +541,9 @@
                                             <div>
                                                 <p className={darkMode ? 'text-white' : 'text-gray-900'} font-medium text-sm capitalize>{tx.type}</p>
                                                 <p className={darkMode ? 'text-purple-300' : 'text-purple-700'} text-xs truncate max-w-[120px]}>{tx.address}</p>
+                                                <a href={`https://tonscan.org/tx/${tx.hash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 flex items-center">
+                                                    <ExternalLink className="w-3 h-3 mr-1" /> View
+                                                </a>
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -453,7 +552,10 @@
                                             </p>
                                             <p className={darkMode ? 'text-purple-400' : 'text-purple-600'} text-xs>{tx.time}</p>
                                             {tx.status === 'pending' && (
-                                                <p className="text-yellow-400 text-xs">Pending...</p>
+                                                <p className="text-yellow-400 text-xs transaction-pending">Pending...</p>
+                                            )}
+                                            {tx.status === 'completed' && (
+                                                <p className="text-green-400 text-xs">Completed</p>
                                             )}
                                         </div>
                                     </div>
@@ -467,7 +569,7 @@
                         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-6 w-full max-w-sm shadow-2xl`}>
                                 <div className="flex items-center justify-between mb-6">
-                                    <h3 className={darkMode ? 'text-white' : 'text-gray-900'} font-semibold text-lg>Send AMCOIN</h3>
+                                    <h3 className={darkMode ? 'text-white' : 'text-gray-900'} font-semibold text-lg">Send AMCOIN</h3>
                                     <button 
                                         onClick={() => setShowSendModal(false)}
                                         className={darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}
@@ -499,6 +601,15 @@
                                         />
                                     </div>
                                     
+                                    <div className="p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/30">
+                                        <div className="flex items-center space-x-2">
+                                            <AlertCircle className="w-4 h-4 text-yellow-500" />
+                                            <p className="text-yellow-700 dark:text-yellow-300 text-sm">
+                                                Fee: {transactionFee} AMCOIN
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
                                     <div className="flex space-x-3">
                                         <button
                                             onClick={() => setShowSendModal(false)}
@@ -523,7 +634,7 @@
                         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-6 w-full max-w-sm shadow-2xl`}>
                                 <div className="flex items-center justify-between mb-6">
-                                    <h3 className={darkMode ? 'text-white' : 'text-gray-900'} font-semibold text-lg>Receive AMCOIN</h3>
+                                    <h3 className={darkMode ? 'text-white' : 'text-gray-900'} font-semibold text-lg">Receive AMCOIN</h3>
                                     <button 
                                         onClick={() => setShowReceiveModal(false)}
                                         className={darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}
@@ -542,8 +653,8 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <p className={darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2}>Scan this QR code to receive AMCOIN</p>
-                                    <p className={darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm mb-4}>Your wallet address:</p>
+                                    <p className={darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2">Scan this QR code to receive AMCOIN</p>
+                                    <p className={darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm mb-4">Your wallet address:</p>
                                     <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg mb-4">
                                         <p className="text-sm font-mono break-all">{wallet?.address}</p>
                                     </div>
