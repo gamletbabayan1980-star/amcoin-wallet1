@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AMCOIN Wallet</title>
+    <title>AMCOIN Wallet - TON Blockchain Wallet</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -12,6 +12,29 @@
         window.lucideReact = lucideReact;
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         body {
             margin: 0;
@@ -23,14 +46,54 @@
             -moz-osx-font-smoothing: grayscale;
             overflow-x: hidden;
         }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .ton-connect-button {
+            background: linear-gradient(45deg, #0088cc, #00aaff);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .ton-connect-button:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
-<body>
+<body class="bg-gray-50 dark:bg-gray-900">
     <div id="root"></div>
     
     <script type="text/babel">
-        const { useState, useEffect } = React;
-        const { Wallet, User, Lock, Eye, EyeOff, ArrowRight, Send, QrCode, Settings, BarChart3, Coins, Globe, Moon, Sun, LogOut, ChevronDown, ChevronUp, Zap, Shield, Info } = lucideReact;
+        const { useState, useEffect, useRef } = React;
+        const { Wallet, User, Lock, Eye, EyeOff, ArrowRight, Send, QrCode, Settings, BarChart3, Coins, Globe, Moon, Sun, LogOut, ChevronDown, ChevronUp, Zap, Shield, Info, Copy, Check, ExternalLink } = lucideReact;
+
+        // Mock TON Wallet Connection
+        const useTonConnect = () => {
+            const [connected, setConnected] = useState(false);
+            const [wallet, setWallet] = useState(null);
+            const [balance, setBalance] = useState('0');
+            
+            const connect = () => {
+                setConnected(true);
+                setWallet({
+                    address: 'UQabcdefghijklmnopqrstuvwxyz1234567890',
+                    name: 'TON Wallet'
+                });
+                setBalance('2847.32');
+            };
+            
+            const disconnect = () => {
+                setConnected(false);
+                setWallet(null);
+                setBalance('0');
+            };
+            
+            return { connected, wallet, balance, connect, disconnect };
+        };
 
         const App = () => {
             const [currentPage, setCurrentPage] = useState('welcome');
@@ -43,8 +106,19 @@
             const [showSettings, setShowSettings] = useState(false);
             const [selectedLanguage, setSelectedLanguage] = useState('en');
             const [darkMode, setDarkMode] = useState(true);
-            const [tonConnected, setTonConnected] = useState(false);
             const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+            const [copied, setCopied] = useState(false);
+            const [sendAmount, setSendAmount] = useState('');
+            const [sendAddress, setSendAddress] = useState('');
+            const [showSendModal, setShowSendModal] = useState(false);
+            const [showReceiveModal, setShowReceiveModal] = useState(false);
+            const [transactions, setTransactions] = useState([
+                { id: 1, type: 'received', amount: '150.00', address: 'UQabcdefghijklmnopqrstuvwxyz1234567890', time: '2 hours ago', status: 'completed' },
+                { id: 2, type: 'sent', amount: '75.50', address: 'UQ0987654321zyxwvutsrqponmlkjihgfedcba', time: '1 day ago', status: 'completed' },
+                { id: 3, type: 'received', amount: '200.00', address: 'UQfedcba9876543210zyxwvutsrqponmlkjihg', time: '3 days ago', status: 'completed' }
+            ]);
+            
+            const { connected, wallet, balance, connect, disconnect } = useTonConnect();
 
             const languages = {
                 en: 'English',
@@ -58,8 +132,23 @@
                 const savedLang = localStorage.getItem('language') || 'en';
                 const savedDarkMode = localStorage.getItem('darkMode') === 'true';
                 setSelectedLanguage(savedLang);
-                setDarkMode(savedMode);
+                setDarkMode(savedDarkMode);
+                
+                if (savedDarkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
             }, []);
+
+            useEffect(() => {
+                if (darkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+                localStorage.setItem('darkMode', darkMode.toString());
+            }, [darkMode]);
 
             const handleInputChange = (e) => {
                 setFormData({
@@ -74,20 +163,35 @@
                 setCurrentPage('wallet');
             };
 
-            const connectTonWallet = () => {
-                setTonConnected(true);
-                console.log('Connected to TON blockchain');
+            const copyToClipboard = (text) => {
+                navigator.clipboard.writeText(text);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
             };
 
-            const disconnectTonWallet = () => {
-                setTonConnected(false);
-                console.log('Disconnected from TON blockchain');
-            };
-
-            const saveSettings = () => {
-                localStorage.setItem('language', selectedLanguage);
-                localStorage.setItem('darkMode', darkMode.toString());
-                setShowSettings(false);
+            const sendTransaction = () => {
+                if (!sendAmount || !sendAddress) return;
+                
+                const newTransaction = {
+                    id: transactions.length + 1,
+                    type: 'sent',
+                    amount: sendAmount,
+                    address: sendAddress,
+                    time: 'Just now',
+                    status: 'pending'
+                };
+                
+                setTransactions([newTransaction, ...transactions]);
+                setSendAmount('');
+                setSendAddress('');
+                setShowSendModal(false);
+                
+                // Simulate transaction completion
+                setTimeout(() => {
+                    setTransactions(prev => prev.map(tx => 
+                        tx.id === newTransaction.id ? {...tx, status: 'completed'} : tx
+                    ));
+                }, 3000);
             };
 
             const WelcomePage = () => (
@@ -118,15 +222,15 @@
                             {/* TON Connect Button */}
                             <div className="mb-6">
                                 <button
-                                    onClick={connectTonWallet}
+                                    onClick={connect}
                                     className={`w-full py-3 rounded-lg font-semibold transition-all transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2 ${
-                                        tonConnected 
+                                        connected 
                                             ? 'bg-green-600 text-white' 
                                             : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700'
                                     }`}
                                 >
                                     <Zap className="w-4 h-4" />
-                                    <span>{tonConnected ? 'TON Connected' : 'Connect TON Wallet'}</span>
+                                    <span>{connected ? 'TON Connected' : 'Connect TON Wallet'}</span>
                                 </button>
                             </div>
 
@@ -245,7 +349,7 @@
                                     <Settings className="w-5 h-5" />
                                 </button>
                                 <button 
-                                    onClick={disconnectTonWallet}
+                                    onClick={disconnect}
                                     className={`p-2 ${darkMode ? 'text-red-400 hover:text-red-300' : 'text-red-600 hover:text-red-800'} transition-colors`}
                                 >
                                     <LogOut className="w-5 h-5" />
@@ -260,7 +364,7 @@
                             <div className="flex items-center justify-between mb-4">
                                 <div>
                                     <p className={darkMode ? 'text-purple-300' : 'text-purple-200'} text-sm>Connected to TON</p>
-                                    <h2 className="text-white text-3xl font-bold mt-1">2,847.32 AMCOIN</h2>
+                                    <h2 className="text-white text-3xl font-bold mt-1">{balance} AMCOIN</h2>
                                     <p className="text-green-400 text-sm mt-1">+12.5% this month</p>
                                 </div>
                                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -273,15 +377,37 @@
                             </div>
                             
                             <div className="flex space-x-3 mt-6">
-                                <button className="flex-1 bg-white/20 hover:bg-white/30 text-white py-3 rounded-lg font-medium transition-all flex items-center justify-center space-x-2">
+                                <button 
+                                    onClick={() => setShowSendModal(true)}
+                                    className="flex-1 bg-white/20 hover:bg-white/30 text-white py-3 rounded-lg font-medium transition-all flex items-center justify-center space-x-2"
+                                >
                                     <Send className="w-4 h-4" />
                                     <span>Send</span>
                                 </button>
-                                <button className="flex-1 bg-white/20 hover:bg-white/30 text-white py-3 rounded-lg font-medium transition-all flex items-center justify-center space-x-2">
+                                <button 
+                                    onClick={() => setShowReceiveModal(true)}
+                                    className="flex-1 bg-white/20 hover:bg-white/30 text-white py-3 rounded-lg font-medium transition-all flex items-center justify-center space-x-2"
+                                >
                                     <QrCode className="w-4 h-4" />
                                     <span>Receive</span>
                                 </button>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Wallet Address */}
+                    <div className="p-4">
+                        <div className={`${darkMode ? 'bg-white/10 backdrop-blur-sm border-white/20' : 'bg-white/30 backdrop-blur-sm border-gray-200'} rounded-xl p-4 border flex items-center justify-between`}>
+                            <div className="flex-1 min-w-0">
+                                <p className={darkMode ? 'text-purple-300' : 'text-purple-700'} text-sm>Wallet Address</p>
+                                <p className={darkMode ? 'text-white' : 'text-gray-900'} className="truncate text-sm font-mono">{wallet?.address}</p>
+                            </div>
+                            <button 
+                                onClick={() => copyToClipboard(wallet?.address)}
+                                className={`p-2 ${darkMode ? 'text-purple-300 hover:text-white' : 'text-purple-600 hover:text-gray-900'} transition-colors`}
+                            >
+                                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                            </button>
                         </div>
                     </div>
 
@@ -308,34 +434,130 @@
                         <div className={`${darkMode ? 'bg-white/10 backdrop-blur-sm border-white/20' : 'bg-white/30 backdrop-blur-sm border-gray-200'} rounded-2xl p-4 border`}>
                             <h3 className={darkMode ? 'text-white' : 'text-gray-900'} font-semibold mb-4>Recent Transactions</h3>
                             <div className="space-y-3">
-                                {[
-                                    { id: 1, type: 'Received', amount: '+150.00 AMCOIN', time: '2 hours ago', address: '0x...a1b2c3' },
-                                    { id: 2, type: 'Sent', amount: '-75.50 AMCOIN', time: '1 day ago', address: '0x...d4e5f6' },
-                                    { id: 3, type: 'Received', amount: '+200.00 AMCOIN', time: '3 days ago', address: '0x...g7h8i9' },
-                                ].map((tx) => (
+                                {transactions.map((tx) => (
                                     <div key={tx.id} className={`flex items-center justify-between p-3 ${darkMode ? 'bg-white/5' : 'bg-white/20'} rounded-lg`}>
                                         <div className="flex items-center space-x-3">
                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                                tx.type === 'Received' ? 'bg-green-500/20' : 'bg-red-500/20'
+                                                tx.type === 'received' ? 'bg-green-500/20' : 'bg-red-500/20'
                                             }`}>
-                                                <Send className={`w-4 h-4 ${tx.type === 'Received' ? 'text-green-400' : 'text-red-400'} rotate-180`} />
+                                                <Send className={`w-4 h-4 ${tx.type === 'received' ? 'text-green-400' : 'text-red-400'} rotate-180`} />
                                             </div>
                                             <div>
-                                                <p className={darkMode ? 'text-white' : 'text-gray-900'} font-medium text-sm>{tx.type}</p>
-                                                <p className={darkMode ? 'text-purple-300' : 'text-purple-700'} text-xs>{tx.address}</p>
+                                                <p className={darkMode ? 'text-white' : 'text-gray-900'} font-medium text-sm capitalize>{tx.type}</p>
+                                                <p className={darkMode ? 'text-purple-300' : 'text-purple-700'} text-xs truncate max-w-[120px]}>{tx.address}</p>
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className={`font-semibold text-sm ${tx.type === 'Received' ? 'text-green-400' : 'text-red-400'}`}>
-                                                {tx.amount}
+                                            <p className={`font-semibold text-sm ${tx.type === 'received' ? 'text-green-400' : 'text-red-400'}`}>
+                                                {tx.type === 'received' ? '+' : '-'}{tx.amount} AMCOIN
                                             </p>
                                             <p className={darkMode ? 'text-purple-400' : 'text-purple-600'} text-xs>{tx.time}</p>
+                                            {tx.status === 'pending' && (
+                                                <p className="text-yellow-400 text-xs">Pending...</p>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
+
+                    {/* Send Modal */}
+                    {showSendModal && (
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-6 w-full max-w-sm shadow-2xl`}>
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className={darkMode ? 'text-white' : 'text-gray-900'} font-semibold text-lg>Send AMCOIN</h3>
+                                    <button 
+                                        onClick={() => setShowSendModal(false)}
+                                        className={darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>Recipient Address</label>
+                                        <input
+                                            type="text"
+                                            value={sendAddress}
+                                            onChange={(e) => setSendAddress(e.target.value)}
+                                            className={`w-full px-4 py-3 ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'} rounded-lg border ${darkMode ? 'border-gray-600' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-yellow-400`}
+                                            placeholder="UQ..."
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>Amount</label>
+                                        <input
+                                            type="number"
+                                            value={sendAmount}
+                                            onChange={(e) => setSendAmount(e.target.value)}
+                                            className={`w-full px-4 py-3 ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'} rounded-lg border ${darkMode ? 'border-gray-600' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-yellow-400`}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    
+                                    <div className="flex space-x-3">
+                                        <button
+                                            onClick={() => setShowSendModal(false)}
+                                            className={`flex-1 py-3 rounded-lg font-medium ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'} transition-colors`}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={sendTransaction}
+                                            className="flex-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-3 rounded-lg font-medium hover:from-yellow-500 hover:to-orange-600 transition-all"
+                                        >
+                                            Send
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Receive Modal */}
+                    {showReceiveModal && (
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-6 w-full max-w-sm shadow-2xl`}>
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className={darkMode ? 'text-white' : 'text-gray-900'} font-semibold text-lg>Receive AMCOIN</h3>
+                                    <button 
+                                        onClick={() => setShowReceiveModal(false)}
+                                        className={darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                                
+                                <div className="text-center">
+                                    <div className="bg-white p-4 rounded-lg inline-block mb-4">
+                                        <div className="w-32 h-32 bg-black flex items-center justify-center">
+                                            <div className="grid grid-cols-8 gap-1">
+                                                {Array.from({length: 64}, (_, i) => (
+                                                    <div key={i} className={`w-3 h-3 ${Math.random() > 0.5 ? 'bg-black' : 'bg-white'}`}></div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className={darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2}>Scan this QR code to receive AMCOIN</p>
+                                    <p className={darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm mb-4}>Your wallet address:</p>
+                                    <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg mb-4">
+                                        <p className="text-sm font-mono break-all">{wallet?.address}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => copyToClipboard(wallet?.address)}
+                                        className="flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white py-2 px-4 rounded-lg w-full"
+                                    >
+                                        <Copy className="w-4 h-4" />
+                                        <span>Copy Address</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Settings Modal */}
                     {showSettings && (
@@ -371,6 +593,7 @@
                                                         onClick={() => {
                                                             setSelectedLanguage(key);
                                                             setShowLanguageDropdown(false);
+                                                            localStorage.setItem('language', key);
                                                         }}
                                                         className={`w-full text-left px-4 py-2 hover:${darkMode ? 'bg-gray-600' : 'bg-gray-100'} transition-colors ${
                                                             selectedLanguage === key ? (darkMode ? 'bg-gray-600' : 'bg-gray-100') : ''
@@ -418,7 +641,7 @@
 
                                 {/* Save Button */}
                                 <button
-                                    onClick={saveSettings}
+                                    onClick={() => setShowSettings(false)}
                                     className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-3 rounded-lg font-semibold hover:from-yellow-500 hover:to-orange-600 transition-all"
                                 >
                                     Save Settings
